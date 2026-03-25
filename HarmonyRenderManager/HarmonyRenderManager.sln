@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 18
+VisualStudioVersion = 18.4.11620.152 stable
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HarmonyRenderManager", "HarmonyRenderManager.csproj", "{FBE9C939-54BC-4DA1-B3A7-6DCCF8392034}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{FBE9C939-54BC-4DA1-B3A7-6DCCF8392034}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FBE9C939-54BC-4DA1-B3A7-6DCCF8392034}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FBE9C939-54BC-4DA1-B3A7-6DCCF8392034}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FBE9C939-54BC-4DA1-B3A7-6DCCF8392034}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {CA89B9FA-C26D-4AA9-BA82-73578865CD3A}
+	EndGlobalSection
+EndGlobal
