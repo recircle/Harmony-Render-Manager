@@ -57,6 +57,8 @@ namespace HarmonyRenderManager
             dataGridView.AllowDrop = true;
             dataGridView.DragEnter += DataGridView_DragEnter;
             dataGridView.DragDrop += DataGridView_DragDrop;
+            dataGridView.CellMouseDown += dataGridView_CellMouseDown;
+    dataGridView.CellMouseEnter += dataGridView_CellMouseEnter;
 
             //dataGridView.CellClick += DgvCompare_CellClick;
 
@@ -398,21 +400,22 @@ namespace HarmonyRenderManager
             }
         }
 
-        private void DataGridView_DragOver(object sender, DragEventArgs e)
+        private void dataGridView_CellMouseDown(object sender, DataGridViewCellMouseEventArgs e)
         {
-            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            if (e.Button == MouseButtons.Left && e.RowIndex >= 0)
             {
-                e.Effect = DragDropEffects.Copy;
+                var cell = dataGridView.Rows[e.RowIndex].Cells["Select"];
+                cell.Value = !Convert.ToBoolean(cell.Value);
+            }
+        }
 
-                Point clientPoint = dataGridView.PointToClient(new Point(e.X, e.Y));
-                var hit = dataGridView.HitTest(clientPoint.X, clientPoint.Y);
-
-                if (hit.RowIndex >= 0)
-                {
-                    dataGridView.Rows[hit.RowIndex].Cells["Select"].Value = true;
-
-                    dataGridView.InvalidateCell(dataGridView.Rows[hit.RowIndex].Cells["Select"]);
-                }
+        private void dataGridView_CellMouseEnter(object sender, DataGridViewCellEventArgs e)
+        {
+            if (Control.MouseButtons == MouseButtons.Left && e.RowIndex >= 0)
+            {
+                var cell = dataGridView.Rows[e.RowIndex].Cells["Select"];
+                cell.Value = !Convert.ToBoolean(cell.Value);
+                dataGridView.InvalidateCell(cell);
             }
         }
 
