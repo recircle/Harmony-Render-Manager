@@ -310,6 +310,7 @@ namespace HarmonyRenderManager
             this.buttDelSelected.Size = new System.Drawing.Size(30, 30);
             this.buttDelSelected.TabIndex = 19;
             this.buttDelSelected.UseVisualStyleBackColor = true;
+            this.buttDelSelected.Click += new System.EventHandler(this.buttDelSelected_Click);
             // 
             // PanelForBar
             // 
@@ -317,11 +318,11 @@ namespace HarmonyRenderManager
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.PanelForBar.Controls.Add(this.progressBar);
-            this.PanelForBar.Location = new System.Drawing.Point(568, 64);
-            this.PanelForBar.MaximumSize = new System.Drawing.Size(600, 6);
-            this.PanelForBar.MinimumSize = new System.Drawing.Size(600, 6);
+            this.PanelForBar.Location = new System.Drawing.Point(403, 65);
+            this.PanelForBar.MaximumSize = new System.Drawing.Size(750, 6);
+            this.PanelForBar.MinimumSize = new System.Drawing.Size(750, 6);
             this.PanelForBar.Name = "PanelForBar";
-            this.PanelForBar.Size = new System.Drawing.Size(600, 6);
+            this.PanelForBar.Size = new System.Drawing.Size(750, 6);
             this.PanelForBar.TabIndex = 18;
             // 
             // progressBar
@@ -333,10 +334,10 @@ namespace HarmonyRenderManager
             this.progressBar.ForeColor = System.Drawing.Color.DeepSkyBlue;
             this.progressBar.Location = new System.Drawing.Point(-1, -1);
             this.progressBar.Margin = new System.Windows.Forms.Padding(0);
-            this.progressBar.MaximumSize = new System.Drawing.Size(602, 8);
-            this.progressBar.MinimumSize = new System.Drawing.Size(602, 8);
+            this.progressBar.MaximumSize = new System.Drawing.Size(752, 8);
+            this.progressBar.MinimumSize = new System.Drawing.Size(752, 8);
             this.progressBar.Name = "progressBar";
-            this.progressBar.Size = new System.Drawing.Size(602, 8);
+            this.progressBar.Size = new System.Drawing.Size(752, 8);
             this.progressBar.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
             this.progressBar.TabIndex = 9;
             // 
@@ -348,7 +349,7 @@ namespace HarmonyRenderManager
             this.rederingTextOutput.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
             this.rederingTextOutput.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.rederingTextOutput.ForeColor = System.Drawing.Color.DeepSkyBlue;
-            this.rederingTextOutput.Location = new System.Drawing.Point(568, 47);
+            this.rederingTextOutput.Location = new System.Drawing.Point(403, 48);
             this.rederingTextOutput.Name = "rederingTextOutput";
             this.rederingTextOutput.Size = new System.Drawing.Size(300, 13);
             this.rederingTextOutput.TabIndex = 17;

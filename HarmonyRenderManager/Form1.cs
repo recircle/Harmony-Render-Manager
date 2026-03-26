@@ -27,6 +27,7 @@ namespace HarmonyRenderManager
 
         private int renderProres = 0;
         private string renderExportPath = "";
+        private string episodePrefix;
 
         public Form1()
         {
@@ -103,6 +104,9 @@ namespace HarmonyRenderManager
                     Properties.Settings.Default.Save();
 
                     episodePath = fbd.SelectedPath;
+                    string folderName = Path.GetFileName(episodePath);
+                    episodePrefix = folderName.Length >= 4 ? folderName.Substring(0, 4) : folderName;
+
                     await Task.Run(() => ProcessDirectories(episodePath));
                 }
             }
@@ -141,27 +145,65 @@ namespace HarmonyRenderManager
             this.Invoke(new Action(() =>
             {
                 SetupDataGridViewColumns();
-                dataGridView.Rows.Clear();
+                //dataGridView.Rows.Clear();
 
-                // Fill Rows
                 foreach (var primary in primaryFiles)
                 {
-                    int rowIndex = dataGridView.Rows.Add();
-                    var row = dataGridView.Rows[rowIndex];
-
-                    row.Cells["Select"].Value = false;
-
-                    row.Cells["Name"].Value = primary.Name;
-
-                    row.Cells["ExportName"].Value = primary.Name.Replace("-", "");
-
-                    row.Cells["ExportPath"].Value = renderExportPath;
-
-                    row.Cells["Frames"].Value = getFileFrameNumber(primary.FullPath);
-
-                    row.Tag = primary.FullPath;
+                    AddSceneToGrid(primary.FullPath, renderExportPath);
                 }
             }));
+        }
+
+        private void AddSceneToGrid(string xstagePath, string renderExportPath)
+        {
+            // Gather the data for the row
+            string sceneName = Path.GetFileNameWithoutExtension(xstagePath);
+            string exportName = sceneName.Replace("-", "");
+            string frames = getFileFrameNumber(xstagePath);
+
+            // Ensure we update the UI on the correct thread
+            this.Invoke(new Action(() =>
+            {
+                if (dataGridView.Columns.Count == 0)
+                {
+                    SetupDataGridViewColumns();
+                }
+
+                int rowIndex = dataGridView.Rows.Add();
+                var row = dataGridView.Rows[rowIndex];
+
+                row.Cells["Select"].Value = false;
+                row.Cells["Name"].Value = sceneName;
+                row.Cells["ExportName"].Value = exportName;
+                row.Cells["ExportPath"].Value = renderExportPath;
+                row.Cells["Frames"].Value = frames;
+                row.Cells["Status"].Value = Properties.Resources.STATUS_EMPTY; // Default icon
+
+                row.Tag = xstagePath; // Store path for later use
+            }));
+        }
+
+        private void SetupDataGridViewColumns()
+        {
+            Console.WriteLine("TABLE CONSTRUCTED");
+            //if (dataGridView.Columns.Count > 0) return;
+            if (dataGridView.Columns.Contains("Name")) return;
+
+            dataGridView.Columns.Clear();
+
+            // Setup Columns
+            dataGridView.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Select", HeaderText = "Merge", Width = 30, FlatStyle = FlatStyle.Flat });
+            dataGridView.Columns.Add(new DataGridViewTextBoxColumn { Name = "Name", HeaderText = "Name", Width = 100 });
+            dataGridView.Columns.Add(new DataGridViewTextBoxColumn { Name = "ExportName", HeaderText = "Export Name", Width = 200 });
+            dataGridView.Columns.Add(new DataGridViewTextBoxColumn { Name = "ExportPath", HeaderText = "Export Path", Width = 400 });
+            dataGridView.Columns.Add(new DataGridViewTextBoxColumn { Name = "Frames", HeaderText = "Frames", ReadOnly = true, Width = 40 });
+
+            // Buttons & Status
+            dataGridView.Columns.Add(new DataGridViewImageColumn { Name = "Render", HeaderText = "Render", Image = Properties.Resources.RENDER_FILE, ImageLayout = DataGridViewImageCellLayout.Zoom, Width = 50 });
+            dataGridView.Columns.Add(new DataGridViewImageColumn { Name = "Remove", HeaderText = "Remove", Image = Properties.Resources.STATUS_ERROR, ImageLayout = DataGridViewImageCellLayout.Zoom, Width = 50 });
+            dataGridView.Columns.Add(new DataGridViewImageColumn { Name = "Status", HeaderText = "Status", Image = Properties.Resources.STATUS_EMPTY, ImageLayout = DataGridViewImageCellLayout.Zoom, Width = 50 });
+
+            Console.WriteLine("TABLE CONSTRUCTED");
         }
 
         private void RunHarmonyBatch(string appPath, string sceneFile, int rowIndex)
@@ -176,58 +218,63 @@ namespace HarmonyRenderManager
                 p.StartInfo.CreateNoWindow = true;
 
                 var watchdog = new System.Timers.Timer(60000);
-                watchdog.AutoReset = false; 
+                watchdog.AutoReset = false;
                 watchdog.Elapsed += (s, e) => {
                     if (!p.HasExited)
                     {
-                        _logWindow.AppendLog("!!! RENDER STALLED: Killing process after 1 min inactivity.");
+                        UpdateLog("!!! RENDER STALLED: Killing process.");
                         p.Kill();
                     }
                 };
 
-                p.OutputDataReceived += (s, e) =>
+                DataReceivedEventHandler outputHandler = (s, e) =>
                 {
-                    if (e.Data != null)
+                    if (string.IsNullOrEmpty(e.Data)) return;
+
+                    UpdateLog(e.Data);
+
+                    // Regex for "frame 10" or "Frame: 10"
+                    var match = System.Text.RegularExpressions.Regex.Match(e.Data, @"frame\s+(\d+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                    if (match.Success)
                     {
-                        _logWindow.AppendLog(e.Data);
+                        watchdog.Stop();
+                        watchdog.Start();
 
-                        // 2. Reset timer every time Harmony reports a frame
-                        if (e.Data.Contains("frame"))
+                        if (int.TryParse(match.Groups[1].Value, out int currentFrame))
                         {
-                            watchdog.Stop();
-                            watchdog.Start(); // Restarts the 60s countdown
-
-                            // Existing progress bar logic
-                            string frameStr = e.Data.Substring(e.Data.LastIndexOf(' ') + 1);
-                            if (int.TryParse(frameStr, out int currentFrame))
-                            {
-                                this.Invoke(new Action(() => {
-                                    if (currentFrame <= progressBar.Maximum) progressBar.Value = currentFrame;
-                                }));
-                            }
+                            this.BeginInvoke(new Action(() => {
+                                if (currentFrame >= progressBar.Minimum && currentFrame <= progressBar.Maximum)
+                                    progressBar.Value = currentFrame;
+                            }));
                         }
                     }
                 };
 
-                _logWindow.AppendLog($"STARTING: {Path.GetFileName(sceneFile)}");
+                p.OutputDataReceived += outputHandler;
+                p.ErrorDataReceived += outputHandler;
+
+                UpdateLog($"STARTING BATCH: {Path.GetFileName(sceneFile)}");
 
                 watchdog.Start();
                 p.Start();
+
                 p.BeginOutputReadLine();
                 p.BeginErrorReadLine();
+
                 p.WaitForExit();
                 watchdog.Stop();
 
-                // 3. UI Status Updates
                 this.Invoke(new Action(() => {
-                    // If it was killed by watchdog, mark as error
                     dataGridView.Rows[rowIndex].Cells["Status"].Value =
                         (p.ExitCode == 0) ? Properties.Resources.STATUS_DONE : Properties.Resources.STATUS_ERROR;
                 }));
             }
         }
 
-
+        private void UpdateLog(string message)
+        {
+            _logWindow.BeginInvoke(new Action(() => _logWindow.AppendLog(message)));
+        }
 
         #region XML
 
@@ -265,6 +312,8 @@ namespace HarmonyRenderManager
                         newAttrs = GetProresExportAttrs(movieName, "prores422HQ", 0);
                         break;
                 }
+
+                writeNode.Add(newAttrs);
 
                 document.Save(newFilePath);
                 return newFilePath;
@@ -306,10 +355,105 @@ namespace HarmonyRenderManager
 
         #endregion
 
+        #region DATAGRID
+        private void DataGridView_DragEnter(object sender, DragEventArgs e)
+        {
+            // Check if the data being dragged is a file/folder
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                e.Effect = DragDropEffects.Copy; // Show the [+] cursor
+            }
+            else
+            {
+                e.Effect = DragDropEffects.None;
+            }
+        }
+
+        private void DataGridView_DragDrop(object sender, DragEventArgs e)
+        {
+            // Get the array of paths dropped (could be multiple)
+            string[] paths = (string[])e.Data.GetData(DataFormats.FileDrop);
+
+            foreach (string path in paths)
+            {
+                // 1. If it's a DIRECTORY (Folder)
+                if (Directory.Exists(path))
+                {
+                    rederingTextOutput.Text = $"LOADING FOLDER: {Path.GetFileName(path)}";
+                    ProcessDirectories(path);
+                }
+                // 2. If it's a FILE
+                else if (File.Exists(path))
+                {
+                    if (Path.GetExtension(path).Equals(".xstage", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string fallbackExportPath = Path.GetDirectoryName(path);
+                        AddSceneToGrid(path, renderExportPath ?? fallbackExportPath);
+                    }
+                    else
+                    {
+                        MessageBox.Show($"Skipping: {Path.GetFileName(path)}. Only .xstage files are supported.");
+                    }
+                }
+            }
+        }
+
+        private void DataGridView_DragOver(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                e.Effect = DragDropEffects.Copy;
+
+                Point clientPoint = dataGridView.PointToClient(new Point(e.X, e.Y));
+                var hit = dataGridView.HitTest(clientPoint.X, clientPoint.Y);
+
+                if (hit.RowIndex >= 0)
+                {
+                    dataGridView.Rows[hit.RowIndex].Cells["Select"].Value = true;
+
+                    dataGridView.InvalidateCell(dataGridView.Rows[hit.RowIndex].Cells["Select"]);
+                }
+            }
+        }
+
+        private void DataGridView_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+            // Ignore header clicks (RowIndex will be -1)
+            if (e.RowIndex < 0) return;
+
+            string columnName = dataGridView.Columns[e.ColumnIndex].Name;
+
+            switch (columnName)
+            {
+                case "Render":
+                    DgvCompare_CellClick(sender, e);
+                    break;
+
+                case "Remove":
+                    dataGridView.Rows.RemoveAt(e.RowIndex);
+                    break;
+
+                case "Merge":
+                    //HandleMergeAction(e.RowIndex);
+                    break;
+            }
+        }
+
+        #endregion
+
         #region BUTTONS
         private async void DgvCompare_CellClick(object sender, DataGridViewCellEventArgs e)
         {
             if (e.RowIndex < 0) return;
+
+            if (string.IsNullOrWhiteSpace(renderExportPath))
+            {
+                MessageBox.Show("Please select an Export Path first",
+                                "Missing Export Path",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Warning);
+                return;
+            }
 
             string columnName = dataGridView.Columns[e.ColumnIndex].Name;
 
@@ -341,13 +485,13 @@ namespace HarmonyRenderManager
                 {
                     try
                     {
-                        this.Invoke(new Action(() => rederingTextOutput.Text = "CREATING RENDER FILE..."));
+                        this.Invoke(new Action(() => rederingTextOutput.Text = "CREATING RENDER FILE"));
 
                         string renderXstagePath = parseAndSaveXMLfile(originalPath, finalMoviePath, renderProres);
 
                         if (!string.IsNullOrEmpty(renderXstagePath))
                         {
-                            this.Invoke(new Action(() => rederingTextOutput.Text = $"STARTING HARMONY: {movieName}..."));
+                            this.Invoke(new Action(() => rederingTextOutput.Text = $"RENDERING: {movieName} "));
                             RunHarmonyBatch(harmonyPath, renderXstagePath, e.RowIndex);
                             // File.Delete(renderXstagePath);
                         }
@@ -363,43 +507,6 @@ namespace HarmonyRenderManager
 
                 rederingTextOutput.Text = $"RENDER COMPLETE: {movieName}";
                 progressBar.Value = progressBar.Maximum;
-            }
-        }
-
-        private void DataGridView_DragEnter(object sender, DragEventArgs e)
-        {
-            // Check if the data being dragged is a file/folder
-            if (e.Data.GetDataPresent(DataFormats.FileDrop))
-            {
-                e.Effect = DragDropEffects.Copy; // Show the [+] cursor
-            }
-            else
-            {
-                e.Effect = DragDropEffects.None;
-            }
-        }
-
-        private void DataGridView_DragDrop(object sender, DragEventArgs e)
-        {
-            // Get the array of paths dropped (could be multiple)
-            string[] paths = (string[])e.Data.GetData(DataFormats.FileDrop);
-
-            if (paths.Length > 0)
-            {
-                string droppedPath = paths[0];
-
-                // Ensure it's a directory and not a single file
-                if (Directory.Exists(droppedPath))
-                {
-                    rederingTextOutput.Text = $"Loading from: {droppedPath}";
-
-                    // Trigger your existing method
-                    ProcessDirectories(droppedPath);
-                }
-                else
-                {
-                    MessageBox.Show("Please drop a folder, not a file.");
-                }
             }
         }
 
@@ -471,7 +578,7 @@ namespace HarmonyRenderManager
             {
                 sfd.Filter = "XML Files (*.xml)|*.xml";
                 sfd.Title = "Export Render List";
-                sfd.FileName = "HarmonyRenderList.xml";
+                sfd.FileName = episodePrefix + ".xml";
 
                 if (sfd.ShowDialog() == DialogResult.OK)
                 {
@@ -523,6 +630,15 @@ namespace HarmonyRenderManager
 
             if (result != DialogResult.Yes) return;
 
+            if (string.IsNullOrWhiteSpace(renderExportPath))
+            {
+                MessageBox.Show("Please select an Export Path first",
+                                "Missing Export Path",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Warning);
+                return; 
+            }
+
             buttRenderAll.Enabled = false;
 
             foreach (DataGridViewRow row in dataGridView.Rows)
@@ -551,13 +667,13 @@ namespace HarmonyRenderManager
                 {
                     try
                     {
-                        this.Invoke(new Action(() => rederingTextOutput.Text = $"ROW {rowIndex + 1}: PREPARING {movieName}..."));
+                        this.Invoke(new Action(() => rederingTextOutput.Text = $"PREPARING {movieName}..."));
 
                         string renderXstagePath = parseAndSaveXMLfile(originalPath, finalMoviePath, renderProres);
 
                         if (!string.IsNullOrEmpty(renderXstagePath))
                         {
-                            this.Invoke(new Action(() => rederingTextOutput.Text = $"ROW {rowIndex + 1}: RENDERING {movieName}..."));
+                            this.Invoke(new Action(() => rederingTextOutput.Text = $" RENDERING {movieName}..."));
 
                             RunHarmonyBatch(harmonyPath, renderXstagePath, rowIndex);
                         }
@@ -572,33 +688,32 @@ namespace HarmonyRenderManager
                 });
             }
 
-            rederingTextOutput.Text = "BATCH COMPLETE!";
+            rederingTextOutput.Text = "RENDER COMPLETE!";
             buttRenderAll.Enabled = true;
             progressBar.Value = progressBar.Maximum;
         }
 
-
-        private void DataGridView_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        private void buttDelSelected_Click(object sender, EventArgs e)
         {
-            // Ignore header clicks (RowIndex will be -1)
-            if (e.RowIndex < 0) return;
+            var result = MessageBox.Show("Remove selected files from the list?",
+                                 "Confirm Removal",
+                                 MessageBoxButtons.YesNo,
+                                 MessageBoxIcon.Question);
 
-            string columnName = dataGridView.Columns[e.ColumnIndex].Name;
+            if (result == DialogResult.No) return;
 
-            switch (columnName)
+            for (int i = dataGridView.Rows.Count - 1; i >= 0; i--)
             {
-                case "Render":
-                    DgvCompare_CellClick(sender, e);
-                    break;
+                var row = dataGridView.Rows[i];
+                bool isSelected = Convert.ToBoolean(row.Cells["Select"].Value);
 
-                case "Remove":
-                    dataGridView.Rows.RemoveAt(e.RowIndex);
-                    break;
-
-                case "Merge": 
-                    //HandleMergeAction(e.RowIndex);
-                    break;
+                if (isSelected)
+                {
+                    dataGridView.Rows.RemoveAt(i);
+                }
             }
+
+            rederingTextOutput.Text = "Selected rows removed.";
         }
 
         private void logWindowToolStripMenuItem_Click(object sender, EventArgs e)
@@ -612,30 +727,7 @@ namespace HarmonyRenderManager
         }
 
         #endregion
-
-        private void SetupDataGridViewColumns()
-        {
-            Console.WriteLine("TABLE CONSTRUCTED");
-            //if (dataGridView.Columns.Count > 0) return;
-            if (dataGridView.Columns.Contains("Name")) return;
-
-            dataGridView.Columns.Clear();
-
-            // Setup Columns
-            dataGridView.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Select", HeaderText = "Merge", Width = 30 });
-            dataGridView.Columns.Add(new DataGridViewTextBoxColumn { Name = "Name", HeaderText = "Name", Width = 100 });
-            dataGridView.Columns.Add(new DataGridViewTextBoxColumn { Name = "ExportName", HeaderText = "Export Name", Width = 200 });
-            dataGridView.Columns.Add(new DataGridViewTextBoxColumn { Name = "ExportPath", HeaderText = "Export Path", Width = 400 });
-            dataGridView.Columns.Add(new DataGridViewTextBoxColumn { Name = "Frames", HeaderText = "Frames", ReadOnly = true, Width = 40 });
-
-            // Buttons & Status
-            dataGridView.Columns.Add(new DataGridViewImageColumn { Name = "Render", HeaderText = "Render", Image = Properties.Resources.RENDER_FILE, ImageLayout = DataGridViewImageCellLayout.Zoom, Width = 50 });
-            dataGridView.Columns.Add(new DataGridViewImageColumn { Name = "Remove", HeaderText = "Remove", Image = Properties.Resources.STATUS_ERROR, ImageLayout = DataGridViewImageCellLayout.Zoom, Width = 50 });
-            dataGridView.Columns.Add(new DataGridViewImageColumn { Name = "Status", HeaderText = "Status", Image = Properties.Resources.STATUS_EMPTY, ImageLayout = DataGridViewImageCellLayout.Zoom, Width = 50 });
-
-            Console.WriteLine("TABLE CONSTRUCTED");
-        }
-
+        
         public static string getFileFrameNumber(string filePath)
         {
             try
@@ -659,6 +751,7 @@ namespace HarmonyRenderManager
             return "0"; // Fallback if node not found
         }
 
+        
     }
 }
 
