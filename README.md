@@ -1,6 +1,5 @@
-Harmony Render Manager 
-<br />
 GUI for ToonBoom Harmony batch renderer. 
+<br />
 <br />
 It modifies the xstage (xml) document, insert video export settings and duplicates original document. <br />
  <br />
