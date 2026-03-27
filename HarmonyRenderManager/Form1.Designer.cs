@@ -391,6 +391,7 @@ namespace HarmonyRenderManager
             this.buttAddFile.Size = new System.Drawing.Size(30, 30);
             this.buttAddFile.TabIndex = 14;
             this.buttAddFile.UseVisualStyleBackColor = true;
+            this.buttAddFile.Click += new System.EventHandler(this.buttAddFile_Click);
             // 
             // buttRenderAll
             // 

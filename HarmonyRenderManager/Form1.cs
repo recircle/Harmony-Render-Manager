@@ -360,7 +360,6 @@ namespace HarmonyRenderManager
         #region DATAGRID
         private void DataGridView_DragEnter(object sender, DragEventArgs e)
         {
-            // Check if the data being dragged is a file/folder
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
             {
                 e.Effect = DragDropEffects.Copy; // Show the [+] cursor
@@ -373,18 +372,17 @@ namespace HarmonyRenderManager
 
         private void DataGridView_DragDrop(object sender, DragEventArgs e)
         {
-            // Get the array of paths dropped (could be multiple)
             string[] paths = (string[])e.Data.GetData(DataFormats.FileDrop);
 
             foreach (string path in paths)
             {
-                // 1. If it's a DIRECTORY (Folder)
+                
                 if (Directory.Exists(path))
                 {
                     rederingTextOutput.Text = $"LOADING FOLDER: {Path.GetFileName(path)}";
                     ProcessDirectories(path);
                 }
-                // 2. If it's a FILE
+                
                 else if (File.Exists(path))
                 {
                     if (Path.GetExtension(path).Equals(".xstage", StringComparison.OrdinalIgnoreCase))
@@ -716,7 +714,12 @@ namespace HarmonyRenderManager
                 }
             }
 
-            rederingTextOutput.Text = "Selected rows removed.";
+            rederingTextOutput.Text = "SELECTED ROWS REMOVED.";
+        }
+
+        private void buttAddFile_Click(object sender, EventArgs e)
+        {
+
         }
 
         private void logWindowToolStripMenuItem_Click(object sender, EventArgs e)
