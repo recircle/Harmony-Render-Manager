@@ -1,6 +1,8 @@
 Harmony Render Manager 
 <br />
-GUI for ToonBoom Harmony batch render. 
+GUI for ToonBoom Harmony batch renderer. 
 <br />
-It modifies the xstage (xml) document, insert video export settings and duplicates original document. The plan is to includes the ability to select the type of export (video or image sequence) and individual elements/characters.
-
+It modifies the xstage (xml) document, insert video export settings and duplicates original document. <br />
+ <br />
+For now you can select mov prores types to export but individual elements/characters is on the todo list.
+ <br />
