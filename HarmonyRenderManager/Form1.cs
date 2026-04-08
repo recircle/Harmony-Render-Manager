@@ -1,21 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
-using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Security.AccessControl;
-using System.Security.Cryptography;
-using System.Security.Policy;
-using System.Security.Principal;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.XPath;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace HarmonyRenderManager
 {
@@ -38,7 +30,7 @@ namespace HarmonyRenderManager
         private void Form1_Load(object sender, EventArgs e)
         {
             // auto open log window
-            OpenLog();
+            //OpenLog();
 
         }
 
@@ -58,7 +50,7 @@ namespace HarmonyRenderManager
             dataGridView.DragEnter += DataGridView_DragEnter;
             dataGridView.DragDrop += DataGridView_DragDrop;
             dataGridView.CellMouseDown += dataGridView_CellMouseDown;
-    dataGridView.CellMouseEnter += dataGridView_CellMouseEnter;
+            dataGridView.CellMouseEnter += dataGridView_CellMouseEnter;
 
             //dataGridView.CellClick += DgvCompare_CellClick;
 
@@ -109,7 +101,11 @@ namespace HarmonyRenderManager
                     string folderName = Path.GetFileName(episodePath);
                     episodePrefix = folderName.Length >= 4 ? folderName.Substring(0, 4) : folderName;
 
+                    rederingTextOutput.Text = "START PROCESSING";
+
                     await Task.Run(() => ProcessDirectories(episodePath));
+
+                    rederingTextOutput.Text = "PROCESSING COMPLETE";
                 }
             }
         }
@@ -121,7 +117,8 @@ namespace HarmonyRenderManager
                 .Where(d => !Path.GetFileName(d).Equals("ANIMATORS", StringComparison.OrdinalIgnoreCase))
                 .SelectMany(d => Directory.GetFiles(d, "*.xstage", SearchOption.TopDirectoryOnly))
                 .Where(f => !Path.GetFileName(f).Contains("_render"))
-                .Select(f => new {
+                .Select(f => new
+                {
                     Name = Path.GetFileNameWithoutExtension(f),
                     FullPath = f
                 })
@@ -187,7 +184,6 @@ namespace HarmonyRenderManager
 
         private void SetupDataGridViewColumns()
         {
-            Console.WriteLine("TABLE CONSTRUCTED");
             //if (dataGridView.Columns.Count > 0) return;
             if (dataGridView.Columns.Contains("Name")) return;
 
@@ -221,7 +217,8 @@ namespace HarmonyRenderManager
 
                 var watchdog = new System.Timers.Timer(60000);
                 watchdog.AutoReset = false;
-                watchdog.Elapsed += (s, e) => {
+                watchdog.Elapsed += (s, e) =>
+                {
                     if (!p.HasExited)
                     {
                         UpdateLog("!!! RENDER STALLED: Killing process.");
@@ -244,7 +241,8 @@ namespace HarmonyRenderManager
 
                         if (int.TryParse(match.Groups[1].Value, out int currentFrame))
                         {
-                            this.BeginInvoke(new Action(() => {
+                            this.BeginInvoke(new Action(() =>
+                            {
                                 if (currentFrame >= progressBar.Minimum && currentFrame <= progressBar.Maximum)
                                     progressBar.Value = currentFrame;
                             }));
@@ -266,7 +264,8 @@ namespace HarmonyRenderManager
                 p.WaitForExit();
                 watchdog.Stop();
 
-                this.Invoke(new Action(() => {
+                this.Invoke(new Action(() =>
+                {
                     dataGridView.Rows[rowIndex].Cells["Status"].Value =
                         (p.ExitCode == 0) ? Properties.Resources.STATUS_DONE : Properties.Resources.STATUS_ERROR;
                 }));
@@ -376,13 +375,13 @@ namespace HarmonyRenderManager
 
             foreach (string path in paths)
             {
-                
+
                 if (Directory.Exists(path))
                 {
                     rederingTextOutput.Text = $"LOADING FOLDER: {Path.GetFileName(path)}";
                     ProcessDirectories(path);
                 }
-                
+
                 else if (File.Exists(path))
                 {
                     if (Path.GetExtension(path).Equals(".xstage", StringComparison.OrdinalIgnoreCase))
@@ -486,7 +485,7 @@ namespace HarmonyRenderManager
                 {
                     try
                     {
-                        this.Invoke(new Action(() => rederingTextOutput.Text = "CREATING RENDER FILE"));
+                        this.Invoke(new Action(() => rederingTextOutput.Text = "STARTING RENDER: "));
 
                         string renderXstagePath = parseAndSaveXMLfile(originalPath, finalMoviePath, renderProres);
 
@@ -499,7 +498,8 @@ namespace HarmonyRenderManager
                     }
                     catch (Exception ex)
                     {
-                        this.Invoke(new Action(() => {
+                        this.Invoke(new Action(() =>
+                        {
                             rederingTextOutput.Text = $"ERROR: {ex.Message}";
                             progressBar.Value = 0;
                         }));
@@ -507,7 +507,7 @@ namespace HarmonyRenderManager
                 });
 
                 rederingTextOutput.Text = $"RENDER COMPLETE: {movieName}";
-                progressBar.Value = progressBar.Maximum;
+                progressBar.Value = 0;
             }
         }
 
@@ -515,21 +515,17 @@ namespace HarmonyRenderManager
         {
             using (FolderBrowserDialog fbd = new FolderBrowserDialog())
             {
-                // Load the last used path from settings as the starting point
                 fbd.SelectedPath = Properties.Settings.Default.LastExportPath;
                 fbd.Description = "Select the Export Folder";
 
                 if (fbd.ShowDialog() == DialogResult.OK)
                 {
-                    // 1. Save to variable and Settings
                     renderExportPath = fbd.SelectedPath;
                     Properties.Settings.Default.LastExportPath = renderExportPath;
                     Properties.Settings.Default.Save(); // Persist to disk
 
-                    // 2. Update all cells in the "ExportPath" column
                     foreach (DataGridViewRow row in dataGridView.Rows)
                     {
-                        // Check if row is not the "new row" placeholder
                         if (!row.IsNewRow)
                         {
                             row.Cells["ExportPath"].Value = renderExportPath;
@@ -547,7 +543,7 @@ namespace HarmonyRenderManager
             {
                 if (ofd.ShowDialog() == DialogResult.OK)
                 {
-                    SetupDataGridViewColumns(); 
+                    SetupDataGridViewColumns();
 
                     foreach (string fileName in ofd.FileNames)
                     {
@@ -575,6 +571,15 @@ namespace HarmonyRenderManager
 
         private void renderListToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            if (string.IsNullOrWhiteSpace(renderExportPath))
+            {
+                MessageBox.Show("Please select an Export Path first",
+                                "Missing Export Path",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Warning);
+                return;
+            }
+
             using (SaveFileDialog sfd = new SaveFileDialog())
             {
                 sfd.Filter = "XML Files (*.xml)|*.xml";
@@ -589,7 +594,7 @@ namespace HarmonyRenderManager
                     dt.Columns.Add("ExportName");
                     dt.Columns.Add("ExportPath");
                     dt.Columns.Add("Frames");
-                    dt.Columns.Add("SourcePath"); 
+                    dt.Columns.Add("SourcePath");
 
                     foreach (DataGridViewRow row in dataGridView.Rows)
                     {
@@ -637,7 +642,7 @@ namespace HarmonyRenderManager
                                 "Missing Export Path",
                                 MessageBoxButtons.OK,
                                 MessageBoxIcon.Warning);
-                return; 
+                return;
             }
 
             buttRenderAll.Enabled = false;
@@ -681,7 +686,8 @@ namespace HarmonyRenderManager
                     }
                     catch (Exception ex)
                     {
-                        this.Invoke(new Action(() => {
+                        this.Invoke(new Action(() =>
+                        {
                             rederingTextOutput.Text = $"ERROR ON ROW {rowIndex + 1}: {ex.Message}";
                             row.Cells["Status"].Value = Properties.Resources.STATUS_ERROR;
                         }));
@@ -733,7 +739,7 @@ namespace HarmonyRenderManager
         }
 
         #endregion
-        
+
         public static string getFileFrameNumber(string filePath)
         {
             try
@@ -757,7 +763,6 @@ namespace HarmonyRenderManager
             return "0"; // Fallback if node not found
         }
 
-        
     }
 }
 
