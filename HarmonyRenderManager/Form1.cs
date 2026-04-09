@@ -387,6 +387,7 @@ namespace HarmonyRenderManager
                     if (Path.GetExtension(path).Equals(".xstage", StringComparison.OrdinalIgnoreCase))
                     {
                         string fallbackExportPath = Path.GetDirectoryName(path);
+                        SetupDataGridViewColumns();
                         AddSceneToGrid(path, renderExportPath ?? fallbackExportPath);
                     }
                     else
