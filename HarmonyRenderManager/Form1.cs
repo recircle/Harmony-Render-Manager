@@ -369,7 +369,7 @@ namespace HarmonyRenderManager
             }
         }
 
-        private void DataGridView_DragDrop(object sender, DragEventArgs e)
+        private async void DataGridView_DragDrop(object sender, DragEventArgs e)
         {
             string[] paths = (string[])e.Data.GetData(DataFormats.FileDrop);
 
@@ -379,7 +379,7 @@ namespace HarmonyRenderManager
                 if (Directory.Exists(path))
                 {
                     rederingTextOutput.Text = $"LOADING FOLDER: {Path.GetFileName(path)}";
-                    ProcessDirectories(path);
+                    await Task.Run(() => ProcessDirectories(path));
                 }
 
                 else if (File.Exists(path))
