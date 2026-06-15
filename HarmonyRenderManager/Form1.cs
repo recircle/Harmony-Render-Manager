@@ -86,28 +86,45 @@ namespace HarmonyRenderManager
             using (var fbd = new FolderBrowserDialog())
             {
                 string savedPath = Properties.Settings.Default.LastPath;
-
                 if (!string.IsNullOrEmpty(savedPath) && Directory.Exists(savedPath))
-                {
                     fbd.SelectedPath = savedPath;
-                }
 
                 if (fbd.ShowDialog() == DialogResult.OK)
                 {
-                    Properties.Settings.Default.LastPath = fbd.SelectedPath;
-                    Properties.Settings.Default.Save();
-
                     episodePath = fbd.SelectedPath;
-                    string folderName = Path.GetFileName(episodePath);
+                    SaveLastPath(episodePath);
+
+                    progressBar.Value = 0;
+                    string folderName = System.IO.Path.GetFileName(episodePath);
                     episodePrefix = folderName.Length >= 4 ? folderName.Substring(0, 4) : folderName;
 
-                    rederingTextOutput.Text = "START PROCESSING";
+                    using (var cts = new System.Threading.CancellationTokenSource())
+                    {
+                        // 2. Start the animation task on the UI thread without awaiting it yet
+                        Task animationTask = AnimateLoadingTextAsync(folderName, cts.Token);
 
-                    await Task.Run(() => ProcessDirectories(episodePath));
+                        try
+                        {
+                            // 3. Run your heavy processing task
+                            await Task.Run(() => ProcessDirectories(episodePath));
+                        }
+                        finally
+                        {
+                            // 4. Stop the animation as soon as the processing finishes or fails
+                            cts.Cancel();
+                            try { await animationTask; } catch (OperationCanceledException) { }
+                        }
+                    }
 
                     rederingTextOutput.Text = "PROCESSING COMPLETE";
                 }
             }
+        }
+
+        private void SaveLastPath(string path)
+        {
+            Properties.Settings.Default.LastPath = path;
+            Properties.Settings.Default.Save();
         }
 
         private void ProcessDirectories(string rootPath)
@@ -274,6 +291,11 @@ namespace HarmonyRenderManager
 
         private void UpdateLog(string message)
         {
+            if (_logWindow == null || !_logWindow.IsHandleCreated)
+            {
+                return;
+            }
+
             _logWindow.BeginInvoke(new Action(() => _logWindow.AppendLog(message)));
         }
 
@@ -557,6 +579,8 @@ namespace HarmonyRenderManager
                             int rowIndex = dataGridView.Rows.Add();
                             var row = dataGridView.Rows[rowIndex];
 
+                            renderExportPath = (string)dr["ExportPath"];
+
                             row.Cells["Select"].Value = false;
                             row.Cells["Name"].Value = dr["Name"];
                             row.Cells["ExportName"].Value = dr["ExportName"];
@@ -762,6 +786,28 @@ namespace HarmonyRenderManager
             }
 
             return "0"; // Fallback if node not found
+        }
+
+        private async Task AnimateLoadingTextAsync(string folderName, System.Threading.CancellationToken token)
+        {
+            int dotCount = 0;
+            while (!token.IsCancellationRequested)
+            {
+                string dots = new string('.', dotCount);
+                rederingTextOutput.Text = $"{folderName} - START PROCESSING {dots}";
+
+                dotCount = (dotCount + 1) % 4; // Cycles through 0, 1, 2, 3 dots
+
+                try
+                {
+                    // Wait 500ms before adding the next dot
+                    await Task.Delay(500, token);
+                }
+                catch (TaskCanceledException)
+                {
+                    break;
+                }
+            }
         }
 
     }
